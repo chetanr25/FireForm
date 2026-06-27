@@ -8,7 +8,6 @@ from app.models import Template, FormSubmission, FormTemplate, Job, Input
 def get_template(session: Session, template_id: int) -> Template | None:
     return session.get(Template, template_id)
 
-
 # Form templates (contract Layer 6 registry)
 def create_form_template(session: Session, template: FormTemplate) -> FormTemplate:
     session.add(template)

@@ -41,6 +41,7 @@ def test_upgrade_head(alembic_cfg, alembic_engine):
     assert "incidents" in tables
     assert "forms" in tables
     assert "reports" in tables
+    assert "form_templates" in tables
     assert "alembic_version" in tables
 
 
@@ -293,9 +294,9 @@ def test_reports_no_fk(alembic_cfg, alembic_engine):
 
 
 def test_downgrade_002(alembic_cfg, alembic_engine):
-    """Downgrade by one step removes only the 002 tables, leaving 001 tables intact."""
+    """Downgrade to 001 removes the 002 and 003 tables, leaving 001 tables intact."""
     command.upgrade(alembic_cfg, "head")
-    command.downgrade(alembic_cfg, "-1")
+    command.downgrade(alembic_cfg, "001")
 
     inspector = inspect(alembic_engine)
     tables = inspector.get_table_names()
@@ -304,6 +305,61 @@ def test_downgrade_002(alembic_cfg, alembic_engine):
     assert "incidents" not in tables
     assert "forms" not in tables
     assert "reports" not in tables
+    assert "form_templates" not in tables
     assert "template" in tables
     assert "formsubmission" in tables
     assert "job" in tables
+
+
+# ---------------------------------------------------------------------------
+# 003 — form_templates registry table
+# ---------------------------------------------------------------------------
+
+def test_form_templates_columns(alembic_cfg, alembic_engine):
+    command.upgrade(alembic_cfg, "head")
+
+    inspector = inspect(alembic_engine)
+    columns = {c["name"] for c in inspector.get_columns("form_templates")}
+    assert columns == {
+        "template_id",
+        "form_type",
+        "display_name",
+        "jurisdiction",
+        "agency_type",
+        "fields",
+        "source_standard",
+        "pdf_template_ref",
+        "version",
+        "status",
+        "created_at",
+        "updated_at",
+    }
+
+
+def test_form_templates_unique_form_type(alembic_cfg, alembic_engine):
+    command.upgrade(alembic_cfg, "head")
+
+    inspector = inspect(alembic_engine)
+    indexes = {ix["name"]: ix for ix in inspector.get_indexes("form_templates")}
+    assert indexes["ix_form_templates_form_type"]["unique"]
+
+
+def test_form_templates_no_fk(alembic_cfg, alembic_engine):
+    """form_templates is a standalone registry — no FK to legacy template/incidents."""
+    command.upgrade(alembic_cfg, "head")
+
+    inspector = inspect(alembic_engine)
+    assert inspector.get_foreign_keys("form_templates") == []
+
+
+def test_downgrade_003(alembic_cfg, alembic_engine):
+    """Downgrade by one step removes only form_templates, leaving 002 tables intact."""
+    command.upgrade(alembic_cfg, "head")
+    command.downgrade(alembic_cfg, "-1")
+
+    inspector = inspect(alembic_engine)
+    tables = inspector.get_table_names()
+    assert "form_templates" not in tables
+    assert "inputs" in tables
+    assert "forms" in tables
+    assert "reports" in tables
