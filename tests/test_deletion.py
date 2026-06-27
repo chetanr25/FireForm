@@ -2,10 +2,7 @@
 access control.
 """
 
-import io
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -162,7 +159,7 @@ class TestApiKeyAccessControl:
         assert resp.status_code == 401
 
     def test_purge_with_valid_key(self, client, db):
-        tpl_id = _seed_template(db)
+        _seed_template(db)
         resp = client.post(
             f"{API_PREFIX}/forms/purge?days=30",
             headers={"X-API-Key": "secret-test-key"},
