@@ -72,6 +72,25 @@ class FormType(str, Enum):
     state_new_york = "state_new_york"
 
 
+class TemplateStatus(str, Enum):
+    active = "active"
+    legacy = "legacy"
+    draft = "draft"
+
+
+class TemplateFieldType(str, Enum):
+    string = "string"
+    integer = "integer"
+    number = "number"
+    boolean = "boolean"
+    date = "date"
+    datetime = "datetime"
+    time = "time"
+    enum = "enum"
+    text = "text"
+    array = "array"
+
+
 class IncidentCategory(str, Enum):
     fire = "fire"
     ems = "ems"
