@@ -4,6 +4,7 @@ from app.models.models import (
     Extraction,
     Form,
     FormSubmission,
+    FormTemplate,
     Incident,
     Input,
     Job,
@@ -13,6 +14,7 @@ from app.models.models import (
 
 __all__ = [
     "Template",
+    "FormTemplate",
     "FormSubmission",
     "Job",
     "Input",

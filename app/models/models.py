@@ -16,6 +16,7 @@ from app.api.schemas.enums import (
     OutputFormat,
     PeriodType,
     ReportStatus,
+    TemplateStatus,
 )
 
 
@@ -92,7 +93,7 @@ class Extraction(SQLModel, table=True):
     model_used: str | None = None
     processing_time_seconds: float | None = None
     # Full IncidentContract superset blob; stores partial result while processing,
-    # final canonical JSON when status=completed.
+    # final incident JSON when status=completed.
     incident_contract: dict | None = Field(default=None, sa_column=Column(JSON))
     # Audit trail of manual corrections applied via PATCH /extract/{id}.
     corrections: list | None = Field(default=None, sa_column=Column(JSON))
@@ -139,6 +140,35 @@ class Form(SQLModel, table=True):
     field_mapping_summary: dict | None = Field(default=None, sa_column=Column(JSON))
     pdf_path: str | None = None
     json_data: dict | None = Field(default=None, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class FormTemplate(SQLModel, table=True):
+    """Contract Layer 6 form template registry (path/templates.yaml).
+
+    Distinct from the legacy prototype `Template` (int PK + uploaded PDF): this
+    is the standards registry keyed by `form_type`, holding incident-schema field
+    definitions and mappings. `field_count` and `last_updated` are derived in
+    the response schemas (len(fields) / updated_at.date()), not stored.
+    """
+
+    __tablename__ = "form_templates"
+
+    template_id: UUID = Field(default_factory=uuid4, primary_key=True)
+    form_type: str = Field(sa_column=Column(AutoString, nullable=False, unique=True, index=True))
+    display_name: str
+    jurisdiction: str
+    agency_type: str | None = None
+    # List of TemplateField objects (see app/api/schemas/templates.py).
+    fields: list = Field(sa_column=Column(JSON, nullable=False))
+    field_mappings_from_incident: dict = Field(sa_column=Column(JSON, nullable=False))
+    source_standard: str | None = None
+    pdf_template_ref: str | None = None
+    version: str = Field(default="1.0")
+    status: TemplateStatus = Field(
+        default=TemplateStatus.active, sa_column=Column(AutoString, nullable=False)
+    )
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
