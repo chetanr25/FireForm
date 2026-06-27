@@ -59,7 +59,6 @@ def _to_detail(template: FormTemplate) -> TemplateDetail:
         jurisdiction=template.jurisdiction,
         agency_type=template.agency_type,
         fields=template.fields,
-        field_mappings_from_incident=template.field_mappings_from_incident,
         source_standard=template.source_standard,
         pdf_template_ref=template.pdf_template_ref,
         version=template.version,
@@ -102,8 +101,7 @@ def create_template(db: Session, body: CreateTemplateRequest) -> TemplateDetail:
         display_name=body.display_name,
         jurisdiction=body.jurisdiction,
         agency_type=body.agency_type,
-        fields=[f.model_dump() for f in body.fields],
-        field_mappings_from_incident=body.field_mappings_from_incident,
+        fields=[f.model_dump(mode="json") for f in body.fields],
         source_standard=body.source_standard,
         pdf_template_ref=body.pdf_template_ref,
     )
@@ -129,8 +127,7 @@ def replace_template(
     template.display_name = body.display_name
     template.jurisdiction = body.jurisdiction
     template.agency_type = body.agency_type
-    template.fields = [f.model_dump() for f in body.fields]
-    template.field_mappings_from_incident = body.field_mappings_from_incident
+    template.fields = [f.model_dump(mode="json") for f in body.fields]
     template.source_standard = body.source_standard
     template.pdf_template_ref = body.pdf_template_ref
     template.updated_at = datetime.now(timezone.utc)

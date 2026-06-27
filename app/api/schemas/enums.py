@@ -78,6 +78,12 @@ class TemplateStatus(str, Enum):
     draft = "draft"
 
 
+class TextAlign(str, Enum):
+    left = "left"
+    center = "center"
+    right = "right"
+
+
 class TemplateFieldType(str, Enum):
     string = "string"
     integer = "integer"
