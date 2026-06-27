@@ -36,7 +36,7 @@ CreateTemplateRequest:
     - display_name
     - jurisdiction
     - fields
-    - field_mappings_from_canonical
+    - field_mappings_from_incident
   properties:
     form_type:
       type: string
@@ -51,13 +51,13 @@ CreateTemplateRequest:
       type: array
       items:
         $ref: "#/TemplateField"
-    field_mappings_from_canonical:
+    field_mappings_from_incident:
       type: object
       additionalProperties:
         type: string
       description: |
-        Mapping from canonical FireForm JSON paths to this template's field names.
-        Key = canonical path (e.g. "fire.cause_category"), value = template field name.
+        Mapping from FireForm incident-schema JSON paths to this template's field names.
+        Key = incident-schema path (e.g. "fire.cause_category"), value = template field name.
     source_standard:
       type: string
       nullable: true
@@ -136,9 +136,9 @@ TemplateField:
         type: string
       nullable: true
       description: Valid values for enum fields
-    canonical_mapping:
+    incident_mapping:
       type: string
-      description: JSON path in canonical FireForm schema this field maps from
+      description: JSON path in the FireForm incident schema this field maps from
     default_value:
       nullable: true
-      description: Default value if canonical field is null
+      description: Default value if the incident field is null
