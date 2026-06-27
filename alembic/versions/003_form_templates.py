@@ -5,9 +5,10 @@ Revises: 002
 Create Date: 2026-06-26
 
 Distinct from the legacy `template` table (int PK + uploaded PDF). This is the
-standards registry keyed by `form_type`, holding incident-schema field definitions and
-mappings. `fields` and `field_mappings_from_incident` use sa.JSON for
-consistency with migrations 001/002 and SQLite test-harness compatibility.
+standards registry keyed by `form_type`, holding incident-schema field definitions
+plus their visual layout. The `fields` JSON column (list of TemplateField objects,
+each with a nested `layout`) uses sa.JSON for consistency with migrations 001/002
+and SQLite test-harness compatibility.
 
 `form_type` is a plain VARCHAR (not a Postgres ENUM): custom jurisdictions are
 registered here and are not part of the built-in FormType enum.
@@ -31,10 +32,9 @@ def upgrade() -> None:
         sa.Column("template_id", sa.Uuid(), primary_key=True),
         sa.Column("form_type", sqlmodel.sql.sqltypes.AutoString, nullable=False),
         sa.Column("display_name", sqlmodel.sql.sqltypes.AutoString, nullable=False),
-        sa.Column("jurisdiction", sqlmodel.sql.sqltypes.AutoString, nullable=False),
+        sa.Column("jurisdiction", sqlmodel.sql.sqltypes.AutoString, nullable=True),
         sa.Column("agency_type", sqlmodel.sql.sqltypes.AutoString, nullable=True),
         sa.Column("fields", sa.JSON, nullable=False),
-        sa.Column("field_mappings_from_incident", sa.JSON, nullable=False),
         sa.Column("source_standard", sqlmodel.sql.sqltypes.AutoString, nullable=True),
         sa.Column("pdf_template_ref", sqlmodel.sql.sqltypes.AutoString, nullable=True),
         sa.Column("version", sqlmodel.sql.sqltypes.AutoString, nullable=False),
