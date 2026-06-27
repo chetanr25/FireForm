@@ -149,8 +149,8 @@ class FormTemplate(SQLModel, table=True):
 
     Distinct from the legacy prototype `Template` (int PK + uploaded PDF): this
     is the standards registry keyed by `form_type`, holding incident-schema field
-    definitions and mappings. `field_count` and `last_updated` are derived in
-    the response schemas (len(fields) / updated_at.date()), not stored.
+    definitions plus their visual `layout`. `field_count` and `last_updated` are
+    derived in the response schemas (len(fields) / updated_at.date()), not stored.
     """
 
     __tablename__ = "form_templates"
@@ -158,11 +158,10 @@ class FormTemplate(SQLModel, table=True):
     template_id: UUID = Field(default_factory=uuid4, primary_key=True)
     form_type: str = Field(sa_column=Column(AutoString, nullable=False, unique=True, index=True))
     display_name: str
-    jurisdiction: str
+    jurisdiction: str | None = None
     agency_type: str | None = None
     # List of TemplateField objects (see app/api/schemas/templates.py).
     fields: list = Field(sa_column=Column(JSON, nullable=False))
-    field_mappings_from_incident: dict = Field(sa_column=Column(JSON, nullable=False))
     source_standard: str | None = None
     pdf_template_ref: str | None = None
     version: str = Field(default="1.0")
