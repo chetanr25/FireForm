@@ -99,13 +99,16 @@ class TemplateFieldType(str, Enum):
 
 class IncidentCategory(str, Enum):
     fire = "fire"
+    overpressure_explosion = "overpressure_explosion"
     ems = "ems"
     rescue = "rescue"
     hazardous_conditions = "hazardous_conditions"
     service_call = "service_call"
     good_intent = "good_intent"
     false_alarm = "false_alarm"
+    natural_disaster = "natural_disaster"
     law_enforcement = "law_enforcement"
+    special_incident = "special_incident"
 
 
 class CauseCertainty(str, Enum):
@@ -119,7 +122,9 @@ class InjurySeverity(str, Enum):
     minor = "minor"
     moderate = "moderate"
     severe = "severe"
+    life_threatening = "life_threatening"
     fatal = "fatal"
+    undetermined = "undetermined"
 
 
 class RateOfSpread(str, Enum):
@@ -139,3 +144,10 @@ class OutputFormat(str, Enum):
     pdf = "pdf"
     json = "json"
     both = "both"
+
+
+class FieldSource(str, Enum):
+    schema = "schema"
+    static = "static"
+    manual = "manual"
+    open = "open"

@@ -14,7 +14,8 @@ from sqlmodel import SQLModel, Session, create_engine
 
 from app.main import app
 from app.api.deps import get_db
-from app.models import Template, FormSubmission, FormTemplate, Job, Input, Extraction, Incident, Form, Report  # noqa: F401 — registers tables
+from app.core.config import API_PREFIX  # single source of truth for all tests
+from app.models import Template, FormSubmission, Job, Input, Extraction, Incident, Form, Report  # noqa: F401 — registers tables
 
 # ---------------------------------------------------------------------------
 # In-memory database
@@ -52,6 +53,12 @@ def db():
     """Yield a raw Session for direct DB assertions."""
     with Session(_engine) as session:
         yield session
+
+
+@pytest.fixture
+def test_engine():
+    """Expose the shared in-memory engine for tests that need to open extra sessions."""
+    return _engine
 
 
 # ---------------------------------------------------------------------------

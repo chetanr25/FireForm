@@ -4,6 +4,9 @@
 # POST /api/v1/templates
 # PUT /api/v1/templates/{template_id}
 # GET /api/v1/templates/{template_id}/fields
+# GET /api/v1/templates/{template_id}/pdf
+# POST /api/v1/templates/pdf
+# GET /api/v1/templates/pdf/{upload_id}
 
 templates:
   get:
@@ -13,6 +16,7 @@ templates:
       Returns all registered form templates including built-in standard templates
       (NERIS, NEMSIS, NIBRS, NFIRS modules, OSHA, etc.) and any custom templates
       added for specific jurisdictions. Each template defines the fields, validation
+      rules, and mapping from the FireForm incident schema.
       rules, and mapping from the FireForm incident schema.
     tags:
       - templates
@@ -24,7 +28,7 @@ templates:
             schema:
               type: array
               items:
-                $ref: "../schemas/template.yaml#/TemplateSummary"
+                $ref: "../schemas/template-record.yaml#/TemplateSummary"
             example:
               - template_id: "550e8400-e29b-41d4-a716-446655440070"
                 form_type: "neris"
@@ -69,7 +73,7 @@ templates:
       content:
         application/json:
           schema:
-            $ref: "../schemas/template.yaml#/CreateTemplateRequest"
+            $ref: "../schemas/template-record.yaml#/CreateTemplateRequest"
           example:
             form_type: "state_texas"
             display_name: "Texas State Fire Marshal Incident Report"
@@ -79,6 +83,7 @@ templates:
             fields:
               - field_name: "incident_number"
                 field_type: "string"
+                source: "schema"
                 required: true
                 max_length: 20
                 description: "State-assigned incident number"
@@ -93,8 +98,20 @@ templates:
                   font_size: 10
                   color: "#000000"
                   align: "left"
+                incident_mapping: "report_metadata.incident_number"
+                layout:
+                  page: 0
+                  x: 188.33
+                  y: 621.33
+                  width: 127.33
+                  height: 28.67
+                  font: "Helvetica"
+                  font_size: 10
+                  color: "#000000"
+                  align: "left"
               - field_name: "fire_cause"
                 field_type: "enum"
+                source: "schema"
                 required: true
                 allowed_values:
                   - "accidental"
@@ -127,7 +144,7 @@ templates:
         content:
           application/json:
             schema:
-              $ref: "../schemas/template.yaml#/Template"
+              $ref: "../schemas/template-record.yaml#/Template"
       "409":
         description: Template with this form_type already exists
         content:
@@ -149,6 +166,8 @@ template_by_id:
       Returns the complete template definition including all fields, their types,
       required/optional status, validation rules, and the mapping from the FireForm
       incident schema fields. Includes the source standard reference where applicable.
+      required/optional status, validation rules, and the mapping from the FireForm
+      incident schema fields. Includes the source standard reference where applicable.
     tags:
       - templates
     parameters:
@@ -165,7 +184,7 @@ template_by_id:
         content:
           application/json:
             schema:
-              $ref: "../schemas/template.yaml#/Template"
+              $ref: "../schemas/template-record.yaml#/Template"
       "404":
         description: Template not found
         content:
@@ -195,14 +214,14 @@ template_by_id:
       content:
         application/json:
           schema:
-            $ref: "../schemas/template.yaml#/CreateTemplateRequest"
+            $ref: "../schemas/template-record.yaml#/CreateTemplateRequest"
     responses:
       "200":
         description: Template updated
         content:
           application/json:
             schema:
-              $ref: "../schemas/template.yaml#/Template"
+              $ref: "../schemas/template-record.yaml#/Template"
       "404":
         description: Template not found
         content:
@@ -228,6 +247,7 @@ template_fields:
     summary: Get template field definitions
     description: |
       Returns just the fields list for a template with type, required/optional
+      status, validation rules, and incident-schema mapping. Useful for building
       status, validation rules, and incident-schema mapping. Useful for building
       validation checklists and for the validate endpoint to determine requirements.
     tags:
@@ -268,7 +288,7 @@ template_fields:
                 fields:
                   type: array
                   items:
-                    $ref: "../schemas/template.yaml#/TemplateField"
+                    $ref: "../schemas/template-record.yaml#/TemplateField"
             example:
               template_id: "550e8400-e29b-41d4-a716-446655440070"
               form_type: "neris"
@@ -287,6 +307,13 @@ template_fields:
                     y: 680.0
                     width: 160.0
                     height: 18.0
+                  incident_mapping: "incident.types[0].neris_code"
+                  layout:
+                    page: 0
+                    x: 120.0
+                    y: 680.0
+                    width: 160.0
+                    height: 18.0
                 - field_name: "incident_date"
                   field_type: "date"
                   required: true
@@ -298,8 +325,247 @@ template_fields:
                     y: 655.0
                     width: 120.0
                     height: 18.0
+                  incident_mapping: "incident.start_datetime"
+                  layout:
+                    page: 0
+                    x: 120.0
+                    y: 655.0
+                    width: 120.0
+                    height: 18.0
       "404":
         description: Template not found
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+
+templates_pdf:
+  post:
+    operationId: uploadTemplatePdf
+    summary: Upload a blank PDF and auto-detect its fields
+    description: |
+      First step of the template-authoring flow. Stores the blank agency PDF,
+      reads its page geometry, and kicks off asynchronous field detection with
+      commonforms. Returns 202 immediately with the stored `pdf_template_ref`,
+      the page dimensions, and an `upload_id` to poll.
+
+      Poll `GET /api/v1/templates/pdf/{upload_id}` until detection completes.
+      The completed draft carries one TemplateField per detected box, each with
+      its layout already set and, where the fuzzy matcher scored a confident
+      match, a suggested `incident_mapping` plus ranked alternatives. Detection
+      is best effort: boxes with no interpretable label come back as plain
+      coordinate boxes with no mapping, and a detection failure still leaves
+      the upload fully usable for manual box drawing.
+
+      The editor renders the pages, the user adjusts boxes, sources and
+      mappings, and the resulting fields array goes into `POST /api/v1/templates`
+      together with the returned `pdf_template_ref`.
+
+      Page dimensions are in PDF points (1/72 inch, origin bottom-left), the
+      same coordinate system the `layout` fields use.
+    tags:
+      - templates
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required:
+              - pdf_file
+            properties:
+              pdf_file:
+                type: string
+                format: binary
+                description: Blank fillable or flat PDF form. Max 50MB.
+              detect_fields:
+                type: boolean
+                default: true
+                description: Set false to skip field detection and only store
+                  the PDF (draft completes immediately with no detected_fields)
+    responses:
+      "202":
+        description: PDF stored, field detection queued
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "../schemas/template-record.yaml#/TemplateDraft"
+                - type: object
+                  properties:
+                    job_id:
+                      type: string
+                      format: uuid
+                    poll_url:
+                      type: string
+            example:
+              upload_id: "550e8400-e29b-41d4-a716-446655440080"
+              status: "processing"
+              pdf_template_ref: "templates/uploads/550e8400-e29b-41d4-a716-446655440080.pdf"
+              original_filename: "texas_sfm_incident.pdf"
+              page_count: 2
+              pages:
+                - page: 0
+                  width: 612.0
+                  height: 792.0
+                - page: 1
+                  width: 612.0
+                  height: 792.0
+              retry_after_seconds: 5
+              job_id: "550e8400-e29b-41d4-a716-446655440095"
+              poll_url: "/api/v1/templates/pdf/550e8400-e29b-41d4-a716-446655440080"
+      "400":
+        description: Missing file or malformed multipart request
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "413":
+        description: PDF exceeds the maximum allowed size
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+      "415":
+        description: Uploaded file is not a valid PDF
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+
+template_pdf_draft:
+  get:
+    operationId: getTemplateDraft
+    summary: Get the template draft for an uploaded PDF
+    description: |
+      Returns the TemplateDraft for a previous PDF upload: page geometry plus,
+      once detection finishes, the auto-detected fields with their mapping
+      suggestions. Poll while status is "processing". A "failed" status means
+      detection failed but the PDF is stored and usable; the editor falls back
+      to manual box drawing.
+    tags:
+      - templates
+    parameters:
+      - name: upload_id
+        in: path
+        required: true
+        description: Upload identifier returned by POST /api/v1/templates/pdf
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: Current draft state
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/template-record.yaml#/TemplateDraft"
+            examples:
+              completed:
+                summary: Detection finished with suggestions
+                value:
+                  upload_id: "550e8400-e29b-41d4-a716-446655440080"
+                  status: "completed"
+                  pdf_template_ref: "templates/uploads/550e8400-e29b-41d4-a716-446655440080.pdf"
+                  original_filename: "texas_sfm_incident.pdf"
+                  page_count: 2
+                  pages:
+                    - page: 0
+                      width: 612.0
+                      height: 792.0
+                    - page: 1
+                      width: 612.0
+                      height: 792.0
+                  detected_fields:
+                    - field:
+                        field_name: "incident_number"
+                        field_type: "string"
+                        source: "schema"
+                        required: false
+                        incident_mapping: "report_metadata.incident_number"
+                        layout:
+                          page: 0
+                          x: 188.33
+                          y: 621.33
+                          width: 127.33
+                          height: 28.67
+                      detected_label: "Incident No."
+                      suggestions:
+                        - path: "report_metadata.incident_number"
+                          label: "Incident number"
+                          field_type: "string"
+                          section: "report_metadata"
+                          description: "Agency-assigned incident number"
+                          score: 0.93
+                        - path: "dispatch.dispatch_number"
+                          label: "Dispatch number"
+                          field_type: "string"
+                          section: "dispatch"
+                          score: 0.61
+                    - field:
+                        field_name: "field_7"
+                        field_type: "string"
+                        source: "manual"
+                        required: false
+                        layout:
+                          page: 1
+                          x: 100.0
+                          y: 120.0
+                          width: 180.0
+                          height: 18.0
+                      detected_label: null
+                      suggestions: []
+              processing:
+                summary: Detection still running
+                value:
+                  upload_id: "550e8400-e29b-41d4-a716-446655440080"
+                  status: "processing"
+                  pdf_template_ref: "templates/uploads/550e8400-e29b-41d4-a716-446655440080.pdf"
+                  original_filename: "texas_sfm_incident.pdf"
+                  page_count: 2
+                  pages:
+                    - page: 0
+                      width: 612.0
+                      height: 792.0
+                    - page: 1
+                      width: 612.0
+                      height: 792.0
+                  retry_after_seconds: 5
+      "404":
+        description: Upload not found
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/common.yaml#/ErrorResponse"
+
+template_source_pdf:
+  get:
+    operationId: downloadTemplatePdf
+    summary: Download a template's source PDF
+    description: |
+      Returns the blank source PDF a template's layout coordinates refer to.
+      The editor calls this when reopening a saved template so the user sees
+      the exact same pages and boxes they saved, ready to edit again.
+    tags:
+      - templates
+    parameters:
+      - name: template_id
+        in: path
+        required: true
+        description: Unique identifier of the template
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The template's source PDF
+        content:
+          application/pdf:
+            schema:
+              type: string
+              format: binary
+      "404":
+        description: Template not found or has no source PDF
         content:
           application/json:
             schema:
