@@ -7,6 +7,7 @@ from sqlmodel import SQLModel, Field
 from sqlmodel.sql.sqltypes import AutoString
 
 from app.api.schemas.enums import (
+    DetectionStatus,
     ExtractionStatus,
     FormStatus,
     FormType,
@@ -93,9 +94,10 @@ class Extraction(SQLModel, table=True):
     completed_at: datetime | None = None
     model_used: str | None = None
     processing_time_seconds: float | None = None
-    # Full IncidentContract superset blob; stores partial result while processing,
-    # final incident JSON when status=completed.
-    incident_contract: dict | None = Field(default=None, sa_column=Column(JSON))
+    # Transient contract blob held only while the job runs. Cleared once the
+    # extraction completes and the contract is written to the incident row,
+    # which is the single store. Extractions keep no copy of the final contract.
+    partial_result: dict | None = Field(default=None, sa_column=Column(JSON))
     # Audit trail of manual corrections applied via PATCH /extract/{id}.
     corrections: list | None = Field(default=None, sa_column=Column(JSON))
     error_type: str | None = None
@@ -168,6 +170,38 @@ class Form(SQLModel, table=True):
     field_mapping_summary: dict | None = Field(default=None, sa_column=Column(JSON))
     pdf_path: str | None = None
     json_data: dict | None = Field(default=None, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class TemplateUpload(SQLModel, table=True):
+    """A blank PDF uploaded for template authoring, plus its detection draft.
+
+    The PDF is stored and its page geometry read synchronously, so a row exists
+    with `page_count`/`pages` filled before detection starts. `status` tracks
+    detection alone: a failed detection still leaves a usable upload, the user
+    just draws every box by hand. Rows are drafts, not templates. Registering a
+    template copies the edited fields into `form_templates` and keeps only the
+    `pdf_template_ref` pointing back here.
+    """
+
+    __tablename__ = "template_uploads"
+
+    upload_id: UUID = Field(default_factory=uuid4, primary_key=True)
+    status: DetectionStatus = Field(
+        default=DetectionStatus.processing, sa_column=Column(AutoString, nullable=False)
+    )
+    # Path on disk, and the DATA_DIR-relative reference handed to clients.
+    pdf_path: str
+    pdf_template_ref: str
+    original_filename: str | None = None
+    page_count: int = Field(default=0)
+    # List of {page, width, height} in PDF points.
+    pages: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    # List of DraftField objects (see app/api/schemas/templates.py).
+    detected_fields: list | None = Field(default=None, sa_column=Column(JSON))
+    detection_error: str | None = None
+    job_id: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
