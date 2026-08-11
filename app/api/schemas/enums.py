@@ -47,6 +47,7 @@ class JobType(str, Enum):
     form_generation = "form_generation"
     batch_form_generation = "batch_form_generation"
     report_generation = "report_generation"
+    template_field_detection = "template_field_detection"
 
 
 class FormType(str, Enum):
@@ -70,6 +71,15 @@ class FormType(str, Enum):
     state_georgia = "state_georgia"
     state_california = "state_california"
     state_new_york = "state_new_york"
+
+
+class DetectionStatus(str, Enum):
+    """Field-detection state of an uploaded template PDF. The PDF itself is
+    stored before any of this runs, so a failed detection is recoverable."""
+
+    processing = "processing"
+    completed = "completed"
+    failed = "failed"
 
 
 class TemplateStatus(str, Enum):
