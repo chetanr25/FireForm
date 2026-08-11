@@ -2,7 +2,16 @@ from uuid import UUID
 
 from sqlmodel import Session, select
 
-from app.models import Template, FormSubmission, FormTemplate, Job, Input, Extraction, Incident
+from app.models import (
+    Template,
+    FormSubmission,
+    FormTemplate,
+    Job,
+    Input,
+    Extraction,
+    Incident,
+    TemplateUpload,
+)
 from app.api.schemas.enums import ReportStatus
 
 # Templates (legacy fill pipeline - read-only lookup, consumed by forms/jobs/tasks)
@@ -38,6 +47,25 @@ def update_form_template(session: Session, template: FormTemplate) -> FormTempla
     session.commit()
     session.refresh(template)
     return template
+
+
+# Template PDF uploads (field-detection drafts)
+def create_template_upload(session: Session, upload: TemplateUpload) -> TemplateUpload:
+    session.add(upload)
+    session.commit()
+    session.refresh(upload)
+    return upload
+
+
+def get_template_upload(session: Session, upload_id: UUID) -> TemplateUpload | None:
+    return session.get(TemplateUpload, upload_id)
+
+
+def update_template_upload(session: Session, upload: TemplateUpload) -> TemplateUpload:
+    session.add(upload)
+    session.commit()
+    session.refresh(upload)
+    return upload
 
 
 # Forms

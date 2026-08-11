@@ -10,11 +10,13 @@ from app.models.models import (
     Job,
     Report,
     Template,
+    TemplateUpload,
 )
 
 __all__ = [
     "Template",
     "FormTemplate",
+    "TemplateUpload",
     "FormSubmission",
     "Job",
     "Input",
