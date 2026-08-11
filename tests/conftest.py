@@ -14,8 +14,18 @@ from sqlmodel import SQLModel, Session, create_engine
 
 from app.main import app
 from app.api.deps import get_db
-from app.core.config import API_PREFIX  # single source of truth for all tests
-from app.models import Template, FormSubmission, Job, Input, Extraction, Incident, Form, Report  # noqa: F401 — registers tables
+from app.models import (  # noqa: F401 — importing these registers their tables
+    Extraction,
+    Form,
+    FormSubmission,
+    FormTemplate,
+    Incident,
+    Input,
+    Job,
+    Report,
+    Template,
+    TemplateUpload,
+)
 
 # ---------------------------------------------------------------------------
 # In-memory database

@@ -314,9 +314,8 @@ def test_reports_no_fk(alembic_cfg, alembic_engine):
 
 
 def test_downgrade_002(alembic_cfg, alembic_engine):
-    """Downgrade to 001 removes the 002 and 003 tables, leaving 001 tables intact."""
+    """Downgrade to 001 removes the 002, 003 and 004 tables, leaving 001 intact."""
     command.upgrade(alembic_cfg, "head")
-    command.downgrade(alembic_cfg, "001")
     command.downgrade(alembic_cfg, "001")
 
     inspector = inspect(alembic_engine)
@@ -327,13 +326,14 @@ def test_downgrade_002(alembic_cfg, alembic_engine):
     assert "forms" not in tables
     assert "reports" not in tables
     assert "form_templates" not in tables
+    assert "template_uploads" not in tables
     assert "template" in tables
     assert "formsubmission" in tables
     assert "job" in tables
 
 
 # ---------------------------------------------------------------------------
-# 003 — form_templates registry table
+# 004 — form_templates registry and template_uploads drafts
 # ---------------------------------------------------------------------------
 
 def test_form_templates_columns(alembic_cfg, alembic_engine):
@@ -373,14 +373,44 @@ def test_form_templates_no_fk(alembic_cfg, alembic_engine):
     assert inspector.get_foreign_keys("form_templates") == []
 
 
-def test_downgrade_003(alembic_cfg, alembic_engine):
-    """Downgrade by one step removes only form_templates, leaving 002 tables intact."""
+def test_template_uploads_columns(alembic_cfg, alembic_engine):
+    command.upgrade(alembic_cfg, "head")
+
+    inspector = inspect(alembic_engine)
+    columns = {c["name"] for c in inspector.get_columns("template_uploads")}
+    assert columns == {
+        "upload_id",
+        "status",
+        "pdf_path",
+        "pdf_template_ref",
+        "original_filename",
+        "page_count",
+        "pages",
+        "detected_fields",
+        "detection_error",
+        "job_id",
+        "created_at",
+        "updated_at",
+    }
+
+
+def test_template_uploads_no_fk(alembic_cfg, alembic_engine):
+    """Uploads are drafts, not templates, so nothing points at them yet."""
+    command.upgrade(alembic_cfg, "head")
+
+    inspector = inspect(alembic_engine)
+    assert inspector.get_foreign_keys("template_uploads") == []
+
+
+def test_downgrade_004(alembic_cfg, alembic_engine):
+    """Downgrade by one step removes both 004 tables, leaving 003 intact."""
     command.upgrade(alembic_cfg, "head")
     command.downgrade(alembic_cfg, "-1")
 
     inspector = inspect(alembic_engine)
     tables = inspector.get_table_names()
     assert "form_templates" not in tables
+    assert "template_uploads" not in tables
     assert "inputs" in tables
     assert "forms" in tables
     assert "reports" in tables

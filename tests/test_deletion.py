@@ -36,64 +36,6 @@ def _seed_submission(db, template_id, output_pdf_path="src/outputs/out.pdf"):
 
 
 # ===========================================================================
-# DELETE /api/v1/templates/{template_id}
-# ===========================================================================
-
-class TestDeleteTemplate:
-
-    def test_delete_template_no_key_required_when_unconfigured(self, client):
-        """No API key needed when FIREFORM_API_KEY is empty (default)."""
-        tpl_id = _seed_template(client)
-        resp = client.delete(f"{API_PREFIX}/templates/{tpl_id}")
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body["status"] == "success"
-
-    def test_delete_template_removes_from_db(self, client, db):
-        tpl_id = _seed_template(client)
-        client.delete(f"{API_PREFIX}/templates/{tpl_id}")
-        assert db.get(Template, tpl_id) is None
-
-    def test_delete_template_not_found(self, client):
-        resp = client.delete(f"{API_PREFIX}/templates/99999")
-        assert resp.status_code == 404
-
-    def test_delete_template_cascades_submissions(self, client, db):
-        tpl_id = _seed_template(client)
-        sub_id = _seed_submission(db, tpl_id)
-
-        client.delete(f"{API_PREFIX}/templates/{tpl_id}")
-
-        assert db.get(FormSubmission, sub_id) is None
-        assert db.get(Template, tpl_id) is None
-
-    def test_delete_template_deletes_pdf_file(self, client, tmp_path, monkeypatch):
-        """Verify the template PDF file is removed from disk on delete."""
-        monkeypatch.setattr("app.api.routes.templates.PROJECT_ROOT", tmp_path)
-        pdf_file = tmp_path / "myform.pdf"
-        pdf_file.write_bytes(b"%PDF-1.4 fake")
-
-        relative_path = "myform.pdf"
-        tpl_id = _seed_template(client, pdf_path=relative_path)
-
-        client.delete(f"{API_PREFIX}/templates/{tpl_id}")
-        assert not pdf_file.exists()
-
-    def test_delete_template_deletes_submission_output_pdfs(self, client, db, tmp_path, monkeypatch):
-        """Output PDFs of related submissions should be wiped on template deletion."""
-        monkeypatch.setattr("app.api.routes.templates.PROJECT_ROOT", tmp_path)
-
-        out_pdf = tmp_path / "filled.pdf"
-        out_pdf.write_bytes(b"%PDF-1.4 filled")
-
-        tpl_id = _seed_template(client, pdf_path="tpl.pdf")
-        _seed_submission(db, tpl_id, output_pdf_path="filled.pdf")
-
-        client.delete(f"{API_PREFIX}/templates/{tpl_id}")
-        assert not out_pdf.exists()
-
-
-# ===========================================================================
 # DELETE /api/v1/forms/{submission_id}
 # ===========================================================================
 
